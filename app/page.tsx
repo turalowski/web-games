@@ -1,113 +1,181 @@
+'use client';
+
+
 import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
+
+const W = 800; // Canvas width
+const H = 600; // Canvas height
 
 export default function Home() {
+
+  const canvasRef = useRef(null);
+  const [ballX, setBallX] = useState(W/2);
+  const [ballY, setBallY] = useState(H/2);
+  const [ballSpeedX, setBallSpeedX] = useState(20);
+  const [ballSpeedY, setBallSpeedY] = useState(0);
+  const [paddle1Y, setPaddle1Y] = useState(150);
+  const [paddle2Y, setPaddle2Y] = useState(150);
+  const [winningScreenShowed, setWinningScreenShowed] = useState(false);
+  const [playerScore, setPlayerScore] = useState(0);
+  const [computerScore, setComputerScore] = useState(0);
+  const [requestId, setRequestId] = useState(0);
+
+  const WINNING_SCORE = 3;
+  const PADDLE_HEIGHT = 100;
+  const PADDLE_THICKNESS = 10;
+  const computerLevel = 9; // range 0 - 10
+
+  const handleMouseMove = (e) => {
+    const { y } = calculateMousePos(e);
+    setPaddle1Y(y - PADDLE_HEIGHT / 2);
+  };
+
+  const handleClick = () => {
+    if (!winningScreenShowed) {
+      return;
+    }
+    setWinningScreenShowed(false);
+    setPlayerScore(0);
+    setComputerScore(0);
+  };
+
+  const calculateMousePos = (e) => {
+    const rect = canvasRef.current.getBoundingClientRect();
+    const root = document.documentElement;
+    const mouseX = e.clientX - rect.left - root.scrollLeft;
+    const mouseY = e.clientY - rect.top - root.scrollTop;
+    return { x: mouseX, y: mouseY };
+  };
+
+  const computerMovement = () => {
+    const speed = Math.abs(ballSpeedY);
+    const indent = speed > computerLevel ? -10 : 40;
+    setPaddle2Y(ballY - indent);
+  };
+
+  const moveEverything = () => {
+    if (winningScreenShowed) {
+      return;
+    }
+
+    const hitThePaddle1 = ballY > paddle1Y && ballY < paddle1Y + PADDLE_HEIGHT;
+    const hitThePaddle2 = ballY > paddle2Y && ballY < paddle2Y + PADDLE_HEIGHT;
+
+    computerMovement();
+    setBallX((prevX) => prevX + ballSpeedX);
+    setBallY((prevY) => prevY + ballSpeedY);
+
+    if (ballX > W - PADDLE_THICKNESS) {
+      if (hitThePaddle2) {
+        console.log(1)
+        setBallSpeedX(-ballSpeedX);
+      } else if (ballX > W) {
+        console.log(2)
+        setPlayerScore((prevScore) => prevScore + 1);
+        resetBall();
+      }
+    }
+
+    if (ballX < PADDLE_THICKNESS) {
+      if (hitThePaddle1) {
+        setBallSpeedX(-ballSpeedX);
+        const deltaY = ballY - (paddle1Y + PADDLE_HEIGHT / 2);
+        setBallSpeedY(deltaY * 0.2);
+      } else if (ballX < 0) {
+        setComputerScore((prevScore) => prevScore + 1);
+        resetBall();
+      }
+    }
+
+    if (ballY > H || ballY < 0) {
+      setBallSpeedY(-ballSpeedY);
+    }
+  };
+
+  const drawNet = (ctx) => {
+    for (let i = 0; i < H; i += 40) {
+      drawRect(ctx, W / 2 - 1, i, 2, 20, 'white');
+    }
+  };
+
+  const drawEverything = (ctx) => {
+    drawRect(ctx, 0, 0, W, H, 'black');
+    drawNet(ctx);
+    drawRect(ctx, 0, paddle1Y, PADDLE_THICKNESS, PADDLE_HEIGHT, 'green');
+    drawRect(ctx, W - PADDLE_THICKNESS, paddle2Y, PADDLE_THICKNESS, PADDLE_HEIGHT, 'green');
+    drawCircle(ctx, ballX, ballY, 15, 'red');
+
+    if (winningScreenShowed) {
+      ctx.fillStyle = 'white';
+      if (playerScore === WINNING_SCORE) {
+        ctx.fillText('You Won!', 100, 100);
+      } else if (computerScore >= WINNING_SCORE) {
+        ctx.fillText('Computer Won!', W - 150, 100);
+      }
+      ctx.fillText('click to continue', 300, 310);
+      return;
+    }
+
+    ctx.fillStyle = 'white';
+    ctx.fillText(playerScore, 100, 100);
+    ctx.fillText(computerScore, W - 100, 100);
+  };
+
+  const drawRect = (ctx, x, y, w, h, color) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+  };
+
+  const drawCircle = (ctx, x, y, rad, color) => {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, rad, 0, Math.PI * 2, false);
+    ctx.fill();
+  };
+
+  const resetBall = () => {
+    if (playerScore === WINNING_SCORE || computerScore === WINNING_SCORE) {
+      setWinningScreenShowed(true);
+    }
+    setBallX(W / 2);
+    setBallY(H / 2);
+    setBallSpeedY(0);
+    setPaddle2Y(150);
+    setPaddle1Y(150);
+  };
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+
+    const loop = () => {
+        moveEverything();
+        drawEverything(ctx);
+        setRequestId(requestAnimationFrame(loop));
+    };
+
+    const start = () => {
+      setRequestId(requestAnimationFrame(loop));
+    };
+
+    start();
+
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('click', handleClick);
+
+    return () => {
+      if (requestId) {
+        cancelAnimationFrame(requestId);
+      }
+      canvas.removeEventListener('mousemove', handleMouseMove);
+      canvas.removeEventListener('click', handleClick);
+    };
+  }, [requestId, playerScore, computerScore]);
+    
   return (
     <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
-      </div>
-
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
+    <canvas ref={canvasRef} width={W} height={H} style={{ border: '1px solid white' }} />
     </main>
   );
 }
