@@ -70,6 +70,11 @@ export default function Home() {
     y: PADDLE_START_Y,
   });
 
+  const score = useRef({
+    player1: 0,
+    player2: 0,
+  });
+
   const checkCollisions = () => {
     let { x, y, speedX, speedY } = ballPosition.current;
     let { x: paddle1X, y: paddle1Y } = paddle1.current;
@@ -79,6 +84,10 @@ export default function Home() {
         speedX = -speedX;
         ballPosition.current = { ...ballPosition.current, speedX };
       } else {
+        score.current = {
+          ...score.current,
+          player2: score.current.player2 + 1,
+        };
         resetBall();
       }
     }
@@ -87,6 +96,10 @@ export default function Home() {
         speedX = -speedX;
         ballPosition.current = { ...ballPosition.current, speedX };
       } else {
+        score.current = {
+          ...score.current,
+          player1: score.current.player1 + 1,
+        };
         resetBall();
       }
     }
@@ -106,6 +119,15 @@ export default function Home() {
     computerMovement();
   };
 
+  const drawScore = (ctx: CanvasRenderingContext2D) => {
+    const { player1, player2 } = score.current;
+    ctx.fillStyle = 'white';
+    ctx.font = "bold 32px Roboto";
+
+    ctx.fillText(String(player1), 100, 100);
+    ctx.fillText(String(player2), WIDTH - 100, 100);
+  };
+
   const drawAll = (ctx: CanvasRenderingContext2D) => {
     const { x: paddle1X, y: paddle1Y } = paddle1.current;
     const { x: paddle2X, y: paddle2Y } = paddle2.current;
@@ -115,6 +137,7 @@ export default function Home() {
     drawCircle(ctx, x, y, BALL_RADIUS, 'red');
     drawRect(ctx, paddle1X, paddle1Y, PADDLE_THICKNESS, PADDLE_HEIGHT, 'green');
     drawRect(ctx, paddle2X, paddle2Y, PADDLE_THICKNESS, PADDLE_HEIGHT, 'green');
+    drawScore(ctx);
   };
 
   const loop = () => {
@@ -132,13 +155,24 @@ export default function Home() {
   const computerMovement = () => {
     const { speedY, y } = ballPosition.current;
     const speed = Math.abs(speedY);
-    const indent = speed > 9 ? -10 : 40;
-
-    const newYPosition = y - indent;
-
-    if (newYPosition >= 0 && newYPosition <= HEIGHT - PADDLE_HEIGHT) {
-      paddle2.current = { ...paddle2.current, y: y - indent };
+    const currentYPosition = paddle2.current.y;
+    const ballYPosition = y;
+    let newYPosition = currentYPosition;
+  
+    const easy = 0.8;
+  
+  
+    // Move paddle towards the ball with reaction speed proportional to difficulty
+    if (ballYPosition > currentYPosition + PADDLE_HEIGHT / 2) {
+      newYPosition += easy * speed;
+    } else if (ballYPosition < currentYPosition + PADDLE_HEIGHT / 2) {
+      newYPosition -= easy * speed;
     }
+  
+    // Ensure the paddle doesn't move out of bounds
+    newYPosition = Math.max(0, Math.min(HEIGHT - PADDLE_HEIGHT, newYPosition));
+  
+    paddle2.current = { ...paddle2.current, y: newYPosition };
   };
 
   const handleMouseMove = (e: MouseEvent) => {
