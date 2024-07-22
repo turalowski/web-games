@@ -79,10 +79,13 @@ export default function Home() {
     let { x, y, speedX, speedY } = ballPosition.current;
     let { x: paddle1X, y: paddle1Y } = paddle1.current;
     let { x: paddle2X, y: paddle2Y } = paddle2.current;
+
     if (x - BALL_RADIUS < PADDLE_THICKNESS) {
       if (y > paddle1Y && y < paddle1Y + PADDLE_HEIGHT) {
         speedX = -speedX;
-        ballPosition.current = { ...ballPosition.current, speedX };
+        // Change speedY to add variation when bouncing off the paddle
+        speedY += (y - (paddle1Y + PADDLE_HEIGHT / 2)) * 0.1;
+        ballPosition.current = { ...ballPosition.current, speedX, speedY };
       } else {
         score.current = {
           ...score.current,
@@ -91,10 +94,13 @@ export default function Home() {
         resetBall();
       }
     }
+
     if (x + BALL_RADIUS > WIDTH - PADDLE_THICKNESS) {
       if (y > paddle2Y && y < paddle2Y + PADDLE_HEIGHT) {
         speedX = -speedX;
-        ballPosition.current = { ...ballPosition.current, speedX };
+        // Change speedY to add variation when bouncing off the paddle
+        speedY += (y - (paddle2Y + PADDLE_HEIGHT / 2)) * 0.1;
+        ballPosition.current = { ...ballPosition.current, speedX, speedY };
       } else {
         score.current = {
           ...score.current,
@@ -122,7 +128,7 @@ export default function Home() {
   const drawScore = (ctx: CanvasRenderingContext2D) => {
     const { player1, player2 } = score.current;
     ctx.fillStyle = 'white';
-    ctx.font = "bold 32px Roboto";
+    ctx.font = 'bold 32px Roboto';
 
     ctx.fillText(String(player1), 100, 100);
     ctx.fillText(String(player2), WIDTH - 100, 100);
@@ -158,20 +164,19 @@ export default function Home() {
     const currentYPosition = paddle2.current.y;
     const ballYPosition = y;
     let newYPosition = currentYPosition;
-  
-    const easy = 0.8;
-  
-  
+
+    const easy = 0.9;
+
     // Move paddle towards the ball with reaction speed proportional to difficulty
     if (ballYPosition > currentYPosition + PADDLE_HEIGHT / 2) {
       newYPosition += easy * speed;
     } else if (ballYPosition < currentYPosition + PADDLE_HEIGHT / 2) {
       newYPosition -= easy * speed;
     }
-  
+
     // Ensure the paddle doesn't move out of bounds
     newYPosition = Math.max(0, Math.min(HEIGHT - PADDLE_HEIGHT, newYPosition));
-  
+
     paddle2.current = { ...paddle2.current, y: newYPosition };
   };
 
